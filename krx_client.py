@@ -25,8 +25,9 @@ KRX 파생결합증권 통합정보플랫폼(data.krx.co.kr)에서
 }
 
 주의: 이 데이터에는 '첫 조기상환 배리어(%)' 값이 직접 나오지 않는다.
-정확한 배리어는 ISU_DISCLS_URL의 DART 공시(투자설명서/KID)를 열어봐야 하며,
-이 스크립트는 1차적으로 config.DEFAULT_FIRST_BARRIER_PCT를 근사값으로 사용한다.
+키움증권 상품은 kiwoom_barrier_scraper.py로 실제 값을 매칭해서 채운다.
+NH투자증권은 사이트가 robots.txt로 막혀있어 이 방식이 통하지 않으므로,
+첫조기상환배리어(%)는 None(확인불가)으로 남는다.
 """
 
 import json
@@ -133,3 +134,24 @@ def _estimate_issue_date(exp_dd: str, maturity_str: str):
     days = num * 365 if unit == "년" else num * 30
     issue_date = exp_date - timedelta(days=days)
     return issue_date.strftime("%Y-%m-%d")
+
+
+def enrich_with_kiwoom_barrier(products: list, kiwoom_barrier_map: dict) -> list:
+    """판매사가 키움증권인 상품에 대해, 실제 배리어 맵에서 기초자산 조합이
+    매칭되면 진짜 첫조기상환배리어(%)를 채워넣는다. 매칭 안 되면 None으로
+    남겨둬서(=확인불가) 상위 로직이 자동추천 대상에서 제외하게 한다.
+    NH투자증권 상품은 애초에 이 맵에 없으므로 항상 None으로 남는다.
+    """
+    from kiwoom_barrier_scraper import lookup_barrier
+
+    for p in products:
+        if p["판매사"] == "키움증권":
+            match = lookup_barrier(kiwoom_barrier_map, p["기초자산"])
+            if match:
+                p["첫조기상환배리어(%)"] = match["첫조기상환배리어"]
+                p["배리어출처"] = f"키움 공식페이지 확인 ({match['원문']})"
+            else:
+                p["배리어출처"] = "키움페이지에서 매칭 실패 (확인불가)"
+        else:
+            p["배리어출처"] = "NH는 자동 확인 불가"
+    return products

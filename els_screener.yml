@@ -1,0 +1,35 @@
+name: Weekly ELS Screener
+
+on:
+  schedule:
+    # 매주 월요일 09:00 KST = 00:00 UTC (일요일)
+    - cron: "0 0 * * 1"
+  workflow_dispatch: {}   # 수동으로 "Run workflow" 눌러서 즉시 테스트 가능
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run screener
+        run: python main.py
+
+      # 이메일을 보내지 않고, 결과 엑셀을 이 실행(run)의 Artifacts에 올려둡니다.
+      # 다운로드 방법: 저장소 > Actions 탭 > 해당 실행 클릭 > 맨 아래 Artifacts에서 클릭
+      - name: Upload report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: els-report
+          path: output/*.xlsx
+          retention-days: 90   # 90일간 보관 (필요하면 늘려도 됩니다)

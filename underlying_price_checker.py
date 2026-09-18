@@ -17,24 +17,30 @@ from datetime import datetime, timedelta
 import pandas as pd
 import yfinance as yf
 
-from config import ASSET_TICKER_MAP, LOOKBACK_YEARS, DEFAULT_FIRST_BARRIER_PCT
+from config import ASSET_TICKER_MAP, LOOKBACK_YEARS
 
 
 def check_product_barrier_history(product: dict) -> dict:
     """상품 하나에 대해 기초자산별 배리어 하회 이력을 확인한다.
 
+    실제 첫조기상환배리어(%)를 확인하지 못한 상품(키움에서 매칭 실패, 또는
+    NH투자증권 상품)은 부정확한 기본값을 임의로 적용하지 않고 '판정불가'로
+    처리한다 — 틀린 배리어로 좋은 상품을 잘못 탈락/통과시키는 것을 막기 위함.
+
     반환:
     {
-        "판정가능": True/False,   # 모든 기초자산의 티커를 알고 있어야 True
+        "판정가능": True/False,
         "배리어이하하락이력있음": True/False,
         "상세": {자산명: {"티커":..., "하락이력":..., "최저비율(%)":...}}
     }
     """
+    barrier_pct = product.get("첫조기상환배리어(%)")
+    if barrier_pct is None:
+        return {"판정가능": False, "배리어이하하락이력있음": None, "상세": {}}
+
     detail = {}
     all_known = True
     any_breach = False
-
-    barrier_pct = product.get("첫조기상환배리어(%)") or DEFAULT_FIRST_BARRIER_PCT
 
     for asset_name in product["기초자산"]:
         ticker = ASSET_TICKER_MAP.get(asset_name)
