@@ -30,6 +30,7 @@ def check_product_barrier_history(product: dict) -> dict:
         "상세": {자산명: {"티커":..., "하락이력":..., "최저비율(%)":...}}
     }
     """
+
     detail = {}
     all_known = True
     any_breach = False
@@ -62,14 +63,25 @@ def check_product_barrier_history(product: dict) -> dict:
 def _check_single_asset(ticker: str, issue_date_str, barrier_pct: float):
     """단일 기초자산의 2년 종가를 받아 배리어 하회 이력을 계산한다."""
     end = datetime.today()
+
     start = end - timedelta(days=365 * LOOKBACK_YEARS + 10)
 
     hist = yf.download(ticker, start=start.strftime("%Y-%m-%d"),
-                        end=end.strftime("%Y-%m-%d"), progress=False)
+                        end=end.strftime("%Y-%m-%d"), progress=False, auto_adjust=True)
     if hist.empty:
         return None, None
 
+    # 최신 yfinance는 단일 티커를 받아도 컬럼이 (Close, 티커명) 형태의
+    # MultiIndex로 나올 때가 있다. 이 경우 hist["Close"]가 숫자 Series가 아니라
+    # 또 다른 DataFrame(사실상 1열)으로 나와서 float() 변환이 실패한다.
+    # 컬럼을 평평하게 만들고, 그래도 여러 열이면 첫 번째 열만 사용해 항상
+    # 1차원 Series가 되도록 강제한다.
+    if isinstance(hist.columns, pd.MultiIndex):
+        hist.columns = hist.columns.get_level_values(0)
+
     closes = hist["Close"].dropna()
+    if isinstance(closes, pd.DataFrame):
+        closes = closes.iloc[:, 0]
 
     # 최초기준가 근사: 발행일 종가가 있으면 그것을, 없으면 조회기간 첫 종가를 사용
     base_price = None
@@ -84,6 +96,7 @@ def _check_single_asset(ticker: str, issue_date_str, barrier_pct: float):
         base_price = float(closes.iloc[0])
 
     ratio_series = closes / base_price * 100.0
+
     min_ratio = float(ratio_series.min())
     breached = min_ratio <= barrier_pct
 
