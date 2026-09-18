@@ -19,8 +19,9 @@ from bs4 import BeautifulSoup
 
 KIWOOM_ELS_URL = "https://www3.kiwoom.com/wm/edl/es010/edlElsView"
 
-# "3년/6개월 (80-80-75-75-70-65) KI20" 같은 패턴에서 배리어 숫자열과 KI값을 추출
-_BARRIER_RE = re.compile(r"\(([\d\-()A-Za-z]+)\)\s*KI\s*(\d+)")
+# "3년/6개월 (80-80-75-75-70-65) KI20" 같은 패턴에서
+# 기간("3년/6개월")과 배리어 숫자열, KI값을 함께 추출
+_BARRIER_RE = re.compile(r"유형([^(]{0,40}?)\(([\d\-()A-Za-z]+)\)\s*KI\s*(\d+)")
 
 
 def fetch_kiwoom_barrier_map() -> dict:
@@ -65,7 +66,10 @@ def _parse_barrier_map(text: str) -> dict:
         if not bm:
             continue
 
-        barrier_sequence = bm.group(1)
+        period_text = bm.group(1).strip().replace("\n", " ")
+        barrier_sequence = bm.group(2)
+        ki_value = bm.group(3)
+
         first_token = barrier_sequence.split("-")[0]
         first_digits = re.match(r"\d+", first_token)
         if not first_digits:
@@ -75,8 +79,10 @@ def _parse_barrier_map(text: str) -> dict:
         key = frozenset(assets)
         result[key] = {
             "첫조기상환배리어": first_barrier_pct,
-            "KI": float(bm.group(2)),
-            "원문": f"{barrier_sequence} KI{bm.group(2)}",
+            "KI": float(ki_value),
+            "배리어전체구조": barrier_sequence,
+            "기간구조": period_text,
+            "원문": f"{period_text} ({barrier_sequence}) KI{ki_value}",
         }
     return result
 

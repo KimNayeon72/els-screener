@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-그 주에 조회된 ELS 상품 전체(키움+NH, 기초자산 2개 구성)를 엑셀로 정리하고,
-최종 추천 조건(수익률 15%+ AND 2년간 배리어 이하 하락 이력 없음)을 만족하는
+그 주에 조회된 ELS 상품 중 수익률 15% 이상인 것만(필터는 main.py에서 미리
+적용됨) 엑셀로 정리하고, 배리어 조건(2년간 하락 이력 없음)까지 만족하는
 행에 색을 칠한다.
 """
 
@@ -12,7 +12,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
 
-from config import OUTPUT_DIR, MIN_ANNUAL_YIELD_PCT
+from config import OUTPUT_DIR
 
 HEADER_FILL = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
 HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF")
@@ -22,9 +22,11 @@ RECOMMEND_FONT = Font(name="Arial", bold=True, color="006100")
 
 COLUMNS = [
     "판매사", "종목명", "기초자산1", "기초자산2",
-    "수익률(세전,연환산 %)", "최대손실률(%)", "적용배리어(%)", "배리어확인방법",
+    "수익률(세전,연환산 %)", "최대손실률(%)",
+    "1차조기상환배리어(%)", "배리어전체구조(1차~KI)", "조기상환주기/만기구조",
+    "배리어확인방법",
     "만기", "만기일", "발행일(추정)", "청약마감일",
-    "수익률15%이상", "배리어2년내하락이력없음", "판정가능여부", "최종추천", "공시URL",
+    "배리어2년내하락이력없음", "판정가능여부", "최종추천", "공시URL",
 ]
 
 
@@ -54,7 +56,6 @@ def build_report(rows: list, output_path: str = None) -> str:
         u2 = underlyings[1] if len(underlyings) > 1 else ""
 
         yield_pct = item.get("수익률(세전, 연환산)")
-        yield_ok = bool(yield_pct is not None and yield_pct >= MIN_ANNUAL_YIELD_PCT)
         judgeable = bool(item.get("판정가능", False))
 
         breach = item.get("배리어이하하락이력있음")  # True / False / None(미확인)
@@ -65,9 +66,11 @@ def build_report(rows: list, output_path: str = None) -> str:
             barrier_ok = not breach
             barrier_display = "O" if barrier_ok else "X"
 
-        final_recommend = bool(yield_ok and judgeable and barrier_ok)
+        final_recommend = bool(judgeable and barrier_ok)
         applied_barrier = item.get("첫조기상환배리어(%)")
         applied_barrier_display = applied_barrier if applied_barrier is not None else "확인불가"
+        barrier_structure = item.get("배리어전체구조") or "확인불가"
+        period_structure = item.get("기간구조") or item.get("만기", "")
 
         values = [
             item.get("판매사", ""),
@@ -77,12 +80,13 @@ def build_report(rows: list, output_path: str = None) -> str:
             yield_pct if yield_pct is not None else "확인불가",
             item.get("최대손실률(%)", ""),
             applied_barrier_display,
+            barrier_structure,
+            period_structure,
             item.get("배리어출처", ""),
             item.get("만기", ""),
             item.get("만기일", ""),
             item.get("발행일(추정)", ""),
             item.get("청약마감일", ""),
-            "O" if yield_ok else "X",
             barrier_display,
             "O" if judgeable else "X",
             "★추천" if final_recommend else "",

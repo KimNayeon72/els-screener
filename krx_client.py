@@ -149,6 +149,8 @@ def enrich_with_kiwoom_barrier(products: list, kiwoom_barrier_map: dict) -> list
             match = lookup_barrier(kiwoom_barrier_map, p["기초자산"])
             if match:
                 p["첫조기상환배리어(%)"] = match["첫조기상환배리어"]
+                p["배리어전체구조"] = match["배리어전체구조"]
+                p["기간구조"] = match["기간구조"]
                 p["배리어출처"] = f"키움 공식페이지 확인 ({match['원문']})"
             else:
                 p["배리어출처"] = "키움페이지에서 매칭 실패 (확인불가)"
