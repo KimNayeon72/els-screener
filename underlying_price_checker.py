@@ -30,7 +30,6 @@ def check_product_barrier_history(product: dict) -> dict:
         "상세": {자산명: {"티커":..., "하락이력":..., "최저비율(%)":...}}
     }
     """
-
     detail = {}
     all_known = True
     any_breach = False
@@ -63,7 +62,6 @@ def check_product_barrier_history(product: dict) -> dict:
 def _check_single_asset(ticker: str, issue_date_str, barrier_pct: float):
     """단일 기초자산의 2년 종가를 받아 배리어 하회 이력을 계산한다."""
     end = datetime.today()
-
     start = end - timedelta(days=365 * LOOKBACK_YEARS + 10)
 
     hist = yf.download(ticker, start=start.strftime("%Y-%m-%d"),
@@ -96,7 +94,6 @@ def _check_single_asset(ticker: str, issue_date_str, barrier_pct: float):
         base_price = float(closes.iloc[0])
 
     ratio_series = closes / base_price * 100.0
-
     min_ratio = float(ratio_series.min())
     breached = min_ratio <= barrier_pct
 
